@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAIE 9702 Physics - Hall Effect Simulation</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b0f19;
+            color: #f8fafc;
+            overflow-x: hidden;
+        }
+        canvas {
+            touch-action: none;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between">
+
+    <!-- Header / Navbar -->
+    <header class="bg-slate-900/90 border-b border-slate-800 backdrop-blur sticky top-0 z-50 px-4 py-3">
+        <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-3">
+            <div class="flex items-center gap-3">
+                <div class="bg-indigo-600 text-white p-2.5 rounded-xl font-bold text-lg shadow-lg shadow-indigo-500/20">
+                    <i class="fa-solid fa-atom"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-slate-100 leading-tight">CAIE 9702 Physics: Hall Effect Simulator</h1>
+                    <p class="text-xs text-indigo-400 font-medium">Topic 20: Magnetic Fields, Drift Velocity & Hall Probe</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <button id="playPauseBtn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-4 py-1.5 rounded-lg text-sm transition flex items-center gap-2 shadow-lg shadow-emerald-900/30">
+                    <i class="fa-solid fa-pause" id="playPauseIcon"></i>
+                    <span id="playPauseText">Pause</span>
+                </button>
+                <button id="resetBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold px-4 py-1.5 rounded-lg text-sm border border-slate-700 transition flex items-center gap-2">
+                    <i class="fa-solid fa-rotate-right"></i>
+                    Reset
+                </button>
+                <button id="infoToggleBtn" class="bg-indigo-900/50 hover:bg-indigo-800/50 text-indigo-300 font-semibold px-3 py-1.5 rounded-lg text-sm border border-indigo-700/50 transition">
+                    <i class="fa-solid fa-graduation-cap mr-1"></i> Exam Reference
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="max-w-7xl w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-4 flex-grow">
+        
+        <!-- Left / Canvas Area (8 Cols) -->
+        <div class="lg:col-span-8 flex flex-col gap-4">
+            
+            <!-- Canvas Container Card -->
+            <div class="relative bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+                
+                <!-- Status Badges Overlay -->
+                <div class="absolute top-3 left-3 z-10 flex flex-wrap gap-2">
+                    <span id="equilibriumBadge" class="bg-emerald-950/90 text-emerald-400 border border-emerald-600/50 px-3 py-1 rounded-full text-xs font-semibold backdrop-blur flex items-center gap-1.5 transition-all duration-300">
+                        <i class="fa-solid fa-circle-check"></i> Dynamic Equilibrium ($F_e = F_m$)
+                    </span>
+                    <span id="fieldDirBadge" class="bg-slate-800/90 text-slate-300 border border-slate-700 px-3 py-1 rounded-full text-xs font-medium backdrop-blur">
+                        Magnetic Field: Into Page (+B)
+                    </span>
+                </div>
+
+                <!-- Canvas -->
+                <div class="w-full h-[400px] md:h-[450px] relative bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
+                    <canvas id="simCanvas" class="w-full h-full cursor-crosshair"></canvas>
+                </div>
+
+                <!-- Force Balance Meter & Dynamic Metrics Bar -->
+                <div class="bg-slate-950/90 border-t border-slate-800 p-3 space-y-3">
+                    
+                    <!-- Real-Time Force Balance Meter -->
+                    <div>
+                        <div class="flex justify-between items-center text-[11px] font-semibold text-slate-400 mb-1">
+                            <span class="text-cyan-400 flex items-center gap-1"><i class="fa-solid fa-arrow-down"></i> Magnetic Force $F_m$</span>
+                            <span class="text-slate-300 font-mono" id="balanceStatusText">Transverse Force Equilibrium</span>
+                            <span class="text-rose-400 flex items-center gap-1">Electric Force $F_e$ <i class="fa-solid fa-arrow-up"></i></span>
+                        </div>
+                        <div class="w-full bg-slate-800 h-3 rounded-full overflow-hidden relative flex">
+                            <!-- Left half (Magnetic Force dominance) -->
+                            <div class="w-1/2 bg-slate-800 flex justify-end h-full">
+                                <div id="fmMeterBar" class="bg-cyan-500 h-full transition-all duration-150 rounded-l-full" style="width: 0%;"></div>
+                            </div>
+                            <!-- Center equilibrium marker line -->
+                            <div class="w-0.5 h-full bg-amber-400 z-10"></div>
+                            <!-- Right half (Electric Force dominance) -->
+                            <div class="w-1/2 bg-slate-800 flex justify-start h-full">
+                                <div id="feMeterBar" class="bg-rose-500 h-full transition-all duration-150 rounded-r-full" style="width: 0%;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Metrics Grid -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                        <div class="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+                            <span class="text-slate-400 text-[10px] block font-medium">MAGNETIC FORCE ($F_m$)</span>
+                            <span class="font-mono text-cyan-300 font-bold" id="fmValue">0.00 fN</span>
+                        </div>
+                        <div class="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+                            <span class="text-slate-400 text-[10px] block font-medium">ELECTRIC FORCE ($F_e$)</span>
+                            <span class="font-mono text-rose-400 font-bold" id="feValue">0.00 fN</span>
+                        </div>
+                        <div class="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+                            <span class="text-slate-400 text-[10px] block font-medium">NET FORCE ($F_{\text{net}}$)</span>
+                            <span class="font-mono text-amber-300 font-bold" id="fnetValue">0.00 fN</span>
+                        </div>
+                        <div class="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+                            <span class="text-slate-400 text-[10px] block font-medium">HALL VOLTAGE ($V_H$)</span>
+                            <span class="font-mono text-indigo-300 font-bold text-sm" id="vhValue">0.00 mV</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Syllabus Key Concepts Drawer -->
+            <div id="syllabusNotesCard" class="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-xs leading-relaxed space-y-3">
+                <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                    <h3 class="font-bold text-sm text-indigo-400 flex items-center gap-2">
+                        <i class="fa-solid fa-book-open"></i> CAIE 9702 Syllabus 20.2 Key Physics Steps
+                    </h3>
+                    <span class="text-[10px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full font-mono">Exam Derivation</span>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-slate-300">
+                    <div class="bg-slate-950/80 p-3 rounded-xl border border-slate-800">
+                        <span class="font-semibold text-indigo-300 block mb-1">1. Opposite Directions</span>
+                        Conventional current $I$ flows in direction of positive charge flow. Actual conduction electrons drift in the <strong>exact opposite direction</strong> ($v_d$).
+                    </div>
+                    <div class="bg-slate-950/80 p-3 rounded-xl border border-slate-800">
+                        <span class="font-semibold text-indigo-300 block mb-1">2. Magnetic Deflection</span>
+                        Moving charge $q$ experiences Lorentz force $F_m = q v_d B$. Electrons bend toward one face, accumulating surface charge on opposite faces.
+                    </div>
+                    <div class="bg-slate-950/80 p-3 rounded-xl border border-slate-800">
+                        <span class="font-semibold text-indigo-300 block mb-1">3. Equilibrium Equation</span>
+                        Electric field builds up until $F_e = F_m \implies q E = q v_d B$. Substituting $I = n A q v_d = n (w t) q v_d$:
+                        <div class="text-center font-mono font-bold text-amber-300 mt-1 bg-slate-900 p-1.5 rounded-lg border border-slate-800">
+                            $$V_H = \frac{B I}{n q t}$$
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Side: Controls Panel (4 Cols) -->
+        <div class="lg:col-span-4 flex flex-col gap-4">
+            
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col justify-between space-y-4">
+                <div>
+                    <h2 class="text-sm font-bold text-slate-200 border-b border-slate-800 pb-2 mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-indigo-400"></i> Variable Controls
+                    </h2>
+
+                    <!-- Control 1: Magnetic Field B -->
+                    <div class="mb-4">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                                <i class="fa-solid fa-magnet text-cyan-400"></i> Magnetic Field ($B$)
+                            </label>
+                            <span class="text-xs font-mono font-bold text-cyan-400" id="bValDisplay">+0.50 T</span>
+                        </div>
+                        <input type="range" id="bSlider" min="-1.5" max="1.5" step="0.05" value="0.50" 
+                               class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400">
+                        <div class="flex justify-between text-[10px] text-slate-500 mt-1 font-mono">
+                            <span>Out (-1.5T)</span>
+                            <span>0 T</span>
+                            <span>Into (+1.5T)</span>
+                        </div>
+                    </div>
+
+                    <!-- Control 2: Current I -->
+                    <div class="mb-4">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                                <i class="fa-solid fa-bolt text-amber-400"></i> Conventional Current ($I$)
+                            </label>
+                            <span class="text-xs font-mono font-bold text-amber-400" id="iValDisplay">+2.0 A</span>
+                        </div>
+                        <input type="range" id="iSlider" min="-5.0" max="5.0" step="0.2" value="2.0" 
+                               class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-400">
+                        <div class="flex justify-between text-[10px] text-slate-500 mt-1 font-mono">
+                            <span>&larr; Left (-5A)</span>
+                            <span>0 A</span>
+                            <span>Right (+5A) &rarr;</span>
+                        </div>
+                    </div>
+
+                    <!-- Control 3: Thickness t -->
+                    <div class="mb-4">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                                <i class="fa-solid fa-ruler-vertical text-emerald-400"></i> Slice Thickness ($t$)
+                            </label>
+                            <span class="text-xs font-mono font-bold text-emerald-400" id="tValDisplay">1.0 mm</span>
+                        </div>
+                        <input type="range" id="tSlider" min="0.2" max="3.0" step="0.1" value="1.0" 
+                               class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-400">
+                    </div>
+
+                    <!-- Control 4: Width w -->
+                    <div class="mb-4">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                                <i class="fa-solid fa-ruler-horizontal text-purple-400"></i> Slice Width ($w$)
+                            </label>
+                            <span class="text-xs font-mono font-bold text-purple-400" id="wValDisplay">20.0 mm</span>
+                        </div>
+                        <input type="range" id="wSlider" min="10.0" max="40.0" step="1.0" value="20.0" 
+                               class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-400">
+                    </div>
+
+                    <!-- Control 5: Carrier Type -->
+                    <div class="mb-4">
+                        <label class="text-xs font-semibold text-slate-300 block mb-1.5">
+                            Charge Carrier Material
+                        </label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button id="carrierElecBtn" class="bg-indigo-600 hover:bg-indigo-500 text-white border border-indigo-400 rounded-xl py-1.5 px-2 text-xs font-semibold transition flex items-center justify-center gap-1.5 shadow">
+                                <i class="fa-solid fa-minus text-[10px]"></i> Electrons ($n$-type)
+                            </button>
+                            <button id="carrierHoleBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 rounded-xl py-1.5 px-2 text-xs font-semibold transition flex items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-plus text-[10px]"></i> Holes ($p$-type)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Control 6: Carrier Density n -->
+                    <div class="mb-4">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-xs font-semibold text-slate-300">
+                                Carrier Density ($n$)
+                            </label>
+                            <span class="text-xs font-mono font-bold text-slate-300" id="nValDisplay">Semiconductor</span>
+                        </div>
+                        <select id="nSelect" class="w-full bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-xl p-2 focus:ring-1 focus:ring-indigo-500 outline-none">
+                            <option value="1e25">Semiconductor (Low n) &rarr; Large V_H</option>
+                            <option value="5e25" selected>Semiconductor (Medium n)</option>
+                            <option value="1e28">Conductor (Metal, High n) &rarr; Tiny V_H</option>
+                        </select>
+                    </div>
+
+                    <!-- Toggles -->
+                    <div class="border-t border-slate-800 pt-3 space-y-2">
+                        <label class="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                            <input type="checkbox" id="showVectorsCheck" checked class="rounded bg-slate-950 border-slate-700 text-indigo-600 focus:ring-0">
+                            Show Vectors ($F_m, F_e, v_d$) on Carriers
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                            <input type="checkbox" id="showFieldGridCheck" checked class="rounded bg-slate-950 border-slate-700 text-indigo-600 focus:ring-0">
+                            Show Magnetic Field Symbols ($B$)
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                            <input type="checkbox" id="slowMotionCheck" class="rounded bg-slate-950 border-slate-700 text-indigo-600 focus:ring-0">
+                            Slow-Motion Mode
+                        </label>
+                    </div>
+
+                </div>
+
+                <!-- Equation Summary Footer -->
+                <div class="bg-slate-950 p-3 rounded-xl border border-indigo-900/40 space-y-1 text-[11px]">
+                    <div class="flex justify-between text-slate-400">
+                        <span>Drift Velocity:</span>
+                        <span class="font-mono text-emerald-400 font-bold">$v_d = \frac{I}{n q A}$</span>
+                    </div>
+                    <div class="flex justify-between text-slate-400">
+                        <span>Hall Voltage:</span>
+                        <span class="font-mono text-indigo-300 font-bold">$V_H = \frac{B I}{n q t}$</span>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-950 border-t border-slate-800 py-2.5 px-4 text-center text-xs text-slate-500">
+        CAIE Physics 9702 Syllabus Interactive Learning Tool &bull; Hall Effect & Magnetic Probe Simulation
+    </footer>
+
+    <!-- MathJax for TeX Rendering -->
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <!-- Simulation Physics & Rendering Engine -->
+    <script>
+        // --- Canvas & Context ---
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // --- Controls Inputs ---
+        const bSlider = document.getElementById('bSlider');
+        const iSlider = document.getElementById('iSlider');
+        const tSlider = document.getElementById('tSlider');
+        const wSlider = document.getElementById('wSlider');
+        const nSelect = document.getElementById('nSelect');
+
+        const bValDisplay = document.getElementById('bValDisplay');
+        const iValDisplay = document.getElementById('iValDisplay');
+        const tValDisplay = document.getElementById('tValDisplay');
+        const wValDisplay = document.getElementById('wValDisplay');
+        const nValDisplay = document.getElementById('nValDisplay');
+
+        const carrierElecBtn = document.getElementById('carrierElecBtn');
+        const carrierHoleBtn = document.getElementById('carrierHoleBtn');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const playPauseIcon = document.getElementById('playPauseIcon');
+        const playPauseText = document.getElementById('playPauseText');
+        const resetBtn = document.getElementById('resetBtn');
+        const infoToggleBtn = document.getElementById('infoToggleBtn');
+        const syllabusNotesCard = document.getElementById('syllabusNotesCard');
+
+        const showVectorsCheck = document.getElementById('showVectorsCheck');
+        const showFieldGridCheck = document.getElementById('showFieldGridCheck');
+        const slowMotionCheck = document.getElementById('slowMotionCheck');
+
+        // Meter and Display Elements
+        const fmValue = document.getElementById('fmValue');
+        const feValue = document.getElementById('feValue');
+        const fnetValue = document.getElementById('fnetValue');
+        const vhValue = document.getElementById('vhValue');
+        const fmMeterBar = document.getElementById('fmMeterBar');
+        const feMeterBar = document.getElementById('feMeterBar');
+        const balanceStatusText = document.getElementById('balanceStatusText');
+        const equilibriumBadge = document.getElementById('equilibriumBadge');
+        const fieldDirBadge = document.getElementById('fieldDirBadge');
+
+        // --- Physical Constants ---
+        const ELEMENTARY_CHARGE = 1.602e-19; // C
+        const ELECTRON_MASS = 9.109e-31;     // kg
+
+        // --- State Variables ---
+        let isRunning = true;
+        let carrierType = -1; // -1 = Electron (-e), +1 = Hole (+e)
+        let B_field = parseFloat(bSlider.value); // Tesla (+ into page)
+        let Current = parseFloat(iSlider.value); // Amperes (+ right)
+        let Thickness = parseFloat(tSlider.value) * 1e-3; // meters
+        let SliceWidth = parseFloat(wSlider.value) * 1e-3; // meters
+        let CarrierDensity = parseFloat(nSelect.value); // m^-3
+
+        let dynamicEField = 0; // Transverse electric field generated by charge accumulation
+        let particles = [];
+        const NUM_PARTICLES = 60;
+
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * (window.devicePixelRatio || 1);
+            canvas.height = rect.height * (window.devicePixelRatio || 1);
+            ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        // Particle System
+        class Particle {
+            constructor(bounds) {
+                this.bounds = bounds;
+                this.reset();
+            }
+
+            reset() {
+                this.x = this.bounds.x + Math.random() * this.bounds.width;
+                this.y = this.bounds.y + 12 + Math.random() * (this.bounds.height - 24);
+                this.vy = (Math.random() - 0.5) * 0.1;
+            }
+
+            update(driftVx, visualFm, visualFe, dt) {
+                // Horizontal motion in drift velocity direction
+                this.x += driftVx * dt;
+
+                // Vertical deflection governed by net transverse force (Fm - Fe)
+                const netVisualForceY = visualFm - visualFe;
+                const accelerationY = netVisualForceY * 4.0;
+
+                this.vy += accelerationY * dt;
+                this.vy *= 0.85; // Damping/collisions
+
+                this.y += this.vy * dt;
+
+                // Slab edge boundaries
+                const minY = this.bounds.y + 6;
+                const maxY = this.bounds.y + this.bounds.height - 6;
+
+                if (this.y <= minY) {
+                    this.y = minY;
+                    this.vy = 0;
+                } else if (this.y >= maxY) {
+                    this.y = maxY;
+                    this.vy = 0;
+                }
+
+                // Recycle out-of-bounds particles
+                if (driftVx > 0 && this.x > this.bounds.x + this.bounds.width) {
+                    this.x = this.bounds.x;
+                    this.y = this.bounds.y + 12 + Math.random() * (this.bounds.height - 24);
+                } else if (driftVx < 0 && this.x < this.bounds.x) {
+                    this.x = this.bounds.x + this.bounds.width;
+                    this.y = this.bounds.y + 12 + Math.random() * (this.bounds.height - 24);
+                }
+            }
+
+            draw(ctx) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 4.5, 0, Math.PI * 2);
+
+                if (carrierType < 0) {
+                    ctx.fillStyle = '#22d3ee'; // Electron Cyan
+                    ctx.shadowColor = '#06b6d4';
+                } else {
+                    ctx.fillStyle = '#f43f5e'; // Hole Red
+                    ctx.shadowColor = '#e11d48';
+                }
+                ctx.shadowBlur = 6;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                // Sign label inside particle
+                ctx.fillStyle = '#0f172a';
+                ctx.font = 'bold 8px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(carrierType < 0 ? '-' : '+', this.x, this.y + 0.5);
+            }
+        }
+
+        function initParticles(slabBounds) {
+            particles = [];
+            for (let i = 0; i < NUM_PARTICLES; i++) {
+                particles.push(new Particle(slabBounds));
+            }
+        }
+
+        function resetSimulationState() {
+            dynamicEField = 0;
+            const displayWidth = canvas.getBoundingClientRect().width || 600;
+            const displayHeight = canvas.getBoundingClientRect().height || 400;
+            
+            const slabBounds = {
+                x: displayWidth * 0.15,
+                y: displayHeight * 0.28,
+                width: displayWidth * 0.70,
+                height: displayHeight * 0.44
+            };
+            initParticles(slabBounds);
+        }
+
+        // --- Main Frame Update & Physics Loop ---
+        let lastTime = performance.now();
+
+        function animate(currentTime) {
+            requestAnimationFrame(animate);
+
+            let dt = (currentTime - lastTime) / 1000;
+            lastTime = currentTime;
+            if (dt > 0.1) dt = 0.1;
+            if (slowMotionCheck.checked) dt *= 0.25;
+
+            const displayWidth = canvas.getBoundingClientRect().width;
+            const displayHeight = canvas.getBoundingClientRect().height;
+
+            ctx.clearRect(0, 0, displayWidth, displayHeight);
+
+            // Conductor Slab Dimensions
+            const slabX = displayWidth * 0.15;
+            const slabY = displayHeight * 0.28;
+            const slabW = displayWidth * 0.70;
+            const slabH = displayHeight * 0.44;
+            const slabBounds = { x: slabX, y: slabY, width: slabW, height: slabH };
+
+            if (particles.length === 0) initParticles(slabBounds);
+
+            // --- CORE PHYSICS CALCULATIONS ---
+            const q = ELEMENTARY_CHARGE;
+            const crossSectionArea = SliceWidth * Thickness; // m^2
+
+            // Actual Drift Velocity: v_d = I / (n * q * A)
+            const actualDriftVelocity = Current / (CarrierDensity * q * crossSectionArea); // m/s
+
+            // Visual Drift Velocity Direction:
+            // Conventional Current (+I right) => Electrons (-q) drift LEFT (-vx).
+            // Holes (+q) drift RIGHT (+vx) in same direction as Current.
+            const driftDirectionSign = carrierType < 0 ? -Math.sign(Current) : Math.sign(Current);
+            const visualDriftVx = driftDirectionSign * Math.min(Math.abs(Current) * 40, 200);
+
+            // True Magnetic Force: Fm = q * v_d * B
+            const trueFm = Math.abs(q * actualDriftVelocity * B_field);
+
+            // Target Equilibrium Hall Voltage: V_H = (B * I) / (n * q * t)
+            const targetVh = (B_field * Current) / (CarrierDensity * q * Thickness);
+            
+            // Target Equilibrium Electric Field: E = V_H / w
+            const targetEField = targetVh / SliceWidth;
+
+            // Relaxation kinetics toward dynamic equilibrium
+            if (isRunning && Math.abs(B_field) > 0.01 && Math.abs(Current) > 0.05) {
+                dynamicEField += (targetEField - dynamicEField) * 0.035;
+            } else {
+                dynamicEField += (0 - dynamicEField) * 0.08;
+            }
+
+            // True Electric Force: Fe = q * E
+            const trueFe = Math.abs(q * dynamicEField);
+            const trueFnet = Math.abs(trueFm - trueFe);
+
+            // Magnetic Force Direction on Carrier (using Fleming's / Lorentz force):
+            // F_m_y direction on particle in canvas space (+ is Downward, - is Upward)
+            // For Electrons (-q) moving opposite to I:
+            // B into page (+B), I to right (+I) => Lorentz Force on Electron is DOWNWARD (+y).
+            const visualFmMag = B_field * Current * 14; 
+            const visualFeMag = (dynamicEField / (targetEField || 1)) * visualFmMag;
+
+            // Check Equilibrium State
+            const isEquilibrium = Math.abs(targetEField) > 1e-6 && Math.abs((targetEField - dynamicEField) / targetEField) < 0.08;
+
+            if (isEquilibrium && Math.abs(B_field) > 0.05 && Math.abs(Current) > 0.1) {
+                equilibriumBadge.classList.remove('opacity-0', 'pointer-events-none');
+                equilibriumBadge.classList.add('opacity-100');
+            } else {
+                equilibriumBadge.classList.add('opacity-0', 'pointer-events-none');
+            }
+
+            // Update Numerical Readout
+            fmValue.textContent = (trueFm * 1e15).toFixed(2) + " fN";
+            feValue.textContent = (trueFe * 1e15).toFixed(2) + " fN";
+            fnetValue.textContent = (trueFnet * 1e15).toFixed(2) + " fN";
+            vhValue.textContent = (targetVh * 1e3).toFixed(3) + " mV";
+
+            // Update Balance Meter
+            const maxForce = Math.max(trueFm, trueFe, 1e-18);
+            const fmPercent = Math.min((trueFm / maxForce) * 100, 100);
+            const fePercent = Math.min((trueFe / maxForce) * 100, 100);
+
+            fmMeterBar.style.width = `${fmPercent}%`;
+            feMeterBar.style.width = `${fePercent}%`;
+
+            if (isEquilibrium) {
+                balanceStatusText.textContent = "Balanced State (F_e = F_m) → Zero Deflection";
+                balanceStatusText.className = "text-emerald-400 font-mono font-bold";
+            } else if (trueFm > trueFe) {
+                balanceStatusText.textContent = "Deflecting Phase (F_m > F_e)";
+                balanceStatusText.className = "text-cyan-400 font-mono";
+            } else {
+                balanceStatusText.textContent = "Transient Phase";
+                balanceStatusText.className = "text-amber-400 font-mono";
+            }
+
+            // --- DRAWING GRAPHICS ---
+
+            // 1. Magnetic Field B Background Symbols Grid
+            if (showFieldGridCheck.checked && Math.abs(B_field) > 0.01) {
+                ctx.strokeStyle = 'rgba(56, 189, 248, 0.22)';
+                ctx.fillStyle = 'rgba(56, 189, 248, 0.22)';
+                ctx.lineWidth = 1.5;
+
+                const cols = 10;
+                const rows = 5;
+                const cellW = slabW / cols;
+                const cellH = slabH / rows;
+
+                for (let c = 0; c < cols; c++) {
+                    for (let r = 0; r < rows; r++) {
+                        const cx = slabX + c * cellW + cellW / 2;
+                        const cy = slabY + r * cellH + cellH / 2;
+
+                        if (B_field > 0) {
+                            // Into page: Crosses
+                            const sz = 4.5;
+                            ctx.beginPath();
+                            ctx.moveTo(cx - sz, cy - sz); ctx.lineTo(cx + sz, cy + sz);
+                            ctx.moveTo(cx + sz, cy - sz); ctx.lineTo(cx - sz, cy + sz);
+                            ctx.stroke();
+                        } else {
+                            // Out of page: Dots with rings
+                            ctx.beginPath();
+                            ctx.arc(cx, cy, 5.5, 0, Math.PI * 2);
+                            ctx.stroke();
+                            ctx.beginPath();
+                            ctx.arc(cx, cy, 1.5, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    }
+                }
+            }
+
+            // 2. 3D Slab Geometry (Thickness t and Width w)
+            const depth = 16;
+            
+            // Top depth projection
+            ctx.fillStyle = '#1e293b';
+            ctx.beginPath();
+            ctx.moveTo(slabX, slabY);
+            ctx.lineTo(slabX + depth, slabY - depth);
+            ctx.lineTo(slabX + slabW + depth, slabY - depth);
+            ctx.lineTo(slabX + slabW, slabY);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = '#334155';
+            ctx.stroke();
+
+            // Right depth projection
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath();
+            ctx.moveTo(slabX + slabW, slabY);
+            ctx.lineTo(slabX + slabW + depth, slabY - depth);
+            ctx.lineTo(slabX + slabW + depth, slabY + slabH - depth);
+            ctx.lineTo(slabX + slabW, slabY + slabH);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Slab Front Face
+            const slabGrad = ctx.createLinearGradient(slabX, slabY, slabX, slabY + slabH);
+            slabGrad.addColorStop(0, '#1e293b');
+            slabGrad.addColorStop(0.5, '#0f172a');
+            slabGrad.addColorStop(1, '#1e293b');
+            ctx.fillStyle = slabGrad;
+            ctx.fillRect(slabX, slabY, slabW, slabH);
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#475569';
+            ctx.strokeRect(slabX, slabY, slabW, slabH);
+
+            // Labels for Slab Dimensions
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '11px Inter, sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText(`Width w = ${(SliceWidth * 1e3).toFixed(1)} mm`, slabX - 10, slabY + slabH / 2);
+            ctx.textAlign = 'center';
+            ctx.fillText(`Thickness t = ${(Thickness * 1e3).toFixed(1)} mm`, slabX + slabW / 2, slabY - depth - 6);
+
+            // 3. EXPLICIT ARROWS: Conventional Current (I) vs Electron Drift Velocity (v_d)
+            if (Math.abs(Current) > 0.05) {
+                const yI = slabY - 32;
+                const yVd = slabY + slabH + 32;
+
+                // Conventional Current I (Amber)
+                const iDir = Math.sign(Current);
+                const iStartX = iDir > 0 ? slabX + 20 : slabX + slabW - 20;
+                const iEndX = iDir > 0 ? slabX + slabW - 20 : slabX + 20;
+
+                drawAnnotatedArrow(ctx, iStartX, yI, iEndX, yI, '#fbbf24', `Conventional Current (I) → ${Current.toFixed(1)} A`);
+
+                // Carrier Velocity v_d (Cyan for electrons, Red for holes)
+                // Always OPPOSITE to I for electrons!
+                const vdColor = carrierType < 0 ? '#22d3ee' : '#f43f5e';
+                const vdStartX = iEndX;
+                const vdEndX = iStartX;
+                const labelText = carrierType < 0 
+                    ? `Electron Drift Velocity (v_d) [OPPOSITE to I]` 
+                    : `Hole Drift Velocity (v_d) [SAME as I]`;
+
+                drawAnnotatedArrow(ctx, vdStartX, yVd, vdEndX, yVd, vdColor, labelText);
+            }
+
+            // 4. Update and Render Charge Carriers
+            particles.forEach(p => {
+                if (isRunning) {
+                    p.update(visualDriftVx, visualFmMag, visualFeMag, dt);
+                }
+                p.draw(ctx);
+            });
+
+            // 5. Accumulation Surface Charge Polarity Indicators (+ / -)
+            if (Math.abs(dynamicEField) > 0.05 * Math.abs(targetEField) && Math.abs(targetEField) > 0) {
+                const numSigns = 12;
+                const spacing = slabW / (numSigns + 1);
+                
+                // Top face polarity
+                const topIsPositive = dynamicEField < 0;
+
+                ctx.font = 'bold 13px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                for (let i = 1; i <= numSigns; i++) {
+                    const posX = slabX + i * spacing;
+
+                    // Top Face Charge
+                    ctx.fillStyle = topIsPositive ? '#f43f5e' : '#38bdf8';
+                    ctx.fillText(topIsPositive ? '+' : '-', posX, slabY - 8);
+
+                    // Bottom Face Charge
+                    ctx.fillStyle = topIsPositive ? '#38bdf8' : '#f43f5e';
+                    ctx.fillText(topIsPositive ? '-' : '+', posX, slabY + slabH + 10);
+                }
+
+                // Electric Field E Internal Vectors
+                ctx.strokeStyle = 'rgba(251, 191, 36, 0.35)';
+                ctx.fillStyle = 'rgba(251, 191, 36, 0.35)';
+                ctx.lineWidth = 1.5;
+
+                for (let i = 2; i < numSigns; i += 3) {
+                    const posX = slabX + i * spacing;
+                    const startY = topIsPositive ? slabY + 10 : slabY + slabH - 10;
+                    const endY = topIsPositive ? slabY + slabH - 10 : slabY + 10;
+
+                    ctx.beginPath();
+                    ctx.moveTo(posX, startY);
+                    ctx.lineTo(posX, endY);
+                    ctx.stroke();
+
+                    // Arrowhead
+                    const headDir = topIsPositive ? 1 : -1;
+                    ctx.beginPath();
+                    ctx.moveTo(posX, endY);
+                    ctx.lineTo(posX - 4, endY - headDir * 6);
+                    ctx.lineTo(posX + 4, endY - headDir * 6);
+                    ctx.fill();
+                }
+            }
+
+            // 6. Vector Indicators on Sample Moving Carrier
+            if (showVectorsCheck.checked && particles.length > 0) {
+                const sampleP = particles[Math.floor(particles.length / 2)];
+                const px = sampleP.x;
+                const py = sampleP.y;
+
+                // Drift Velocity Vector vd (Green)
+                if (Math.abs(visualDriftVx) > 1) {
+                    const vdLen = Math.sign(visualDriftVx) * 35;
+                    drawVector(ctx, px, py, px + vdLen, py, '#22c55e', 'v_d');
+                }
+
+                // Magnetic Force Vector Fm (Cyan)
+                if (Math.abs(visualFmMag) > 0.1) {
+                    const fmDir = Math.sign(visualFmMag);
+                    const fmLen = fmDir * Math.min(Math.abs(visualFmMag) * 2.2, 42);
+                    drawVector(ctx, px, py, px, py + fmLen, '#38bdf8', 'F_m');
+                }
+
+                // Electric Force Vector Fe (Rose Red)
+                if (Math.abs(visualFeMag) > 0.1) {
+                    const feDir = -Math.sign(visualFeMag);
+                    const feLen = feDir * Math.min(Math.abs(visualFeMag) * 2.2, 42);
+                    drawVector(ctx, px, py, px, py + feLen, '#f43f5e', 'F_e');
+                }
+            }
+
+            // 7. Hall Voltmeter Connection Graphic
+            drawVoltmeter(ctx, slabX + slabW / 2, slabY, slabY + slabH, targetVh);
+        }
+
+        // Helper: Draw Annotated Arrow Line
+        function drawAnnotatedArrow(ctx, startX, startY, endX, endY, color, label) {
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = 2;
+
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, startY);
+            ctx.stroke();
+
+            // Arrowhead
+            const dir = Math.sign(endX - startX);
+            ctx.beginPath();
+            ctx.moveTo(endX, startY);
+            ctx.lineTo(endX - dir * 8, startY - 5);
+            ctx.lineTo(endX - dir * 8, startY + 5);
+            ctx.fill();
+
+            // Label
+            ctx.font = 'bold 11px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(label, (startX + endX) / 2, startY - 8);
+        }
+
+        // Helper: Draw Vector Arrow
+        function drawVector(ctx, fromX, fromY, toX, toY, color, label) {
+            const headlen = 6;
+            const angle = Math.atan2(toY - fromY, toX - fromX);
+
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = 2.5;
+
+            ctx.beginPath();
+            ctx.moveTo(fromX, fromY);
+            ctx.lineTo(toX, toY);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(toX, toY);
+            ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 6), toY - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 6), toY - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.fill();
+
+            ctx.font = 'bold 11px Inter, sans-serif';
+            ctx.fillText(label, toX + Math.cos(angle) * 12, toY + Math.sin(angle) * 12);
+        }
+
+        // Helper: Draw Voltmeter Graphic
+        function drawVoltmeter(ctx, centerX, topY, bottomY, voltage) {
+            const meterY = topY - 50;
+
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([3, 3]);
+
+            ctx.beginPath();
+            ctx.moveTo(centerX, topY);
+            ctx.lineTo(centerX, meterY + 14);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(centerX, bottomY);
+            ctx.lineTo(centerX + 55, bottomY);
+            ctx.lineTo(centerX + 55, meterY);
+            ctx.lineTo(centerX + 16, meterY);
+            ctx.stroke();
+
+            ctx.setLineDash([]);
+
+            ctx.fillStyle = '#020617';
+            ctx.strokeStyle = '#6366f1';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(centerX, meterY, 14, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#818cf8';
+            ctx.font = 'bold 12px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('V', centerX, meterY);
+        }
+
+        // --- Controls Event Bindings ---
+        bSlider.addEventListener('input', (e) => {
+            B_field = parseFloat(e.target.value);
+            bValDisplay.textContent = `${B_field >= 0 ? '+' : ''}${B_field.toFixed(2)} T`;
+            fieldDirBadge.textContent = `Magnetic Field: ${B_field > 0 ? 'Into Page (+B)' : B_field < 0 ? 'Out of Page (-B)' : 'Zero Field'}`;
+        });
+
+        iSlider.addEventListener('input', (e) => {
+            Current = parseFloat(e.target.value);
+            iValDisplay.textContent = `${Current >= 0 ? '+' : ''}${Current.toFixed(1)} A`;
+        });
+
+        tSlider.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            Thickness = val * 1e-3;
+            tValDisplay.textContent = `${val.toFixed(1)} mm`;
+        });
+
+        wSlider.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            SliceWidth = val * 1e-3;
+            wValDisplay.textContent = `${val.toFixed(1)} mm`;
+        });
+
+        nSelect.addEventListener('change', (e) => {
+            CarrierDensity = parseFloat(e.target.value);
+            if (CarrierDensity < 2e25) {
+                nValDisplay.textContent = "Semiconductor (Low)";
+            } else if (CarrierDensity < 1e27) {
+                nValDisplay.textContent = "Semiconductor";
+            } else {
+                nValDisplay.textContent = "Conductor (Metal)";
+            }
+            resetSimulationState();
+        });
+
+        carrierElecBtn.addEventListener('click', () => {
+            carrierType = -1;
+            carrierElecBtn.className = "bg-indigo-600 hover:bg-indigo-500 text-white border border-indigo-400 rounded-xl py-1.5 px-2 text-xs font-semibold transition flex items-center justify-center gap-1.5 shadow";
+            carrierHoleBtn.className = "bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 rounded-xl py-1.5 px-2 text-xs font-semibold transition flex items-center justify-center gap-1.5";
+            resetSimulationState();
+        });
+
+        carrierHoleBtn.addEventListener('click', () => {
+            carrierType = 1;
+            carrierHoleBtn.className = "bg-indigo-600 hover:bg-indigo-500 text-white border border-indigo-400 rounded-xl py-1.5 px-2 text-xs font-semibold transition flex items-center justify-center gap-1.5 shadow";
+            carrierElecBtn.className = "bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 rounded-xl py-1.5 px-2 text-xs font-semibold transition flex items-center justify-center gap-1.5";
+            resetSimulationState();
+        });
+
+        playPauseBtn.addEventListener('click', () => {
+            isRunning = !isRunning;
+            playPauseIcon.className = isRunning ? "fa-solid fa-pause" : "fa-solid fa-play";
+            playPauseText.textContent = isRunning ? "Pause" : "Play";
+        });
+
+        resetBtn.addEventListener('click', () => {
+            bSlider.value = 0.50;
+            iSlider.value = 2.0;
+            tSlider.value = 1.0;
+            wSlider.value = 20.0;
+            B_field = 0.50;
+            Current = 2.0;
+            Thickness = 1.0e-3;
+            SliceWidth = 20.0e-3;
+            bValDisplay.textContent = "+0.50 T";
+            iValDisplay.textContent = "+2.0 A";
+            tValDisplay.textContent = "1.0 mm";
+            wValDisplay.textContent = "20.0 mm";
+            fieldDirBadge.textContent = "Magnetic Field: Into Page (+B)";
+            resetSimulationState();
+        });
+
+        infoToggleBtn.addEventListener('click', () => {
+            syllabusNotesCard.classList.toggle('hidden');
+        });
+
+        window.onload = function() {
+            resizeCanvas();
+            resetSimulationState();
+            requestAnimationFrame(animate);
+        };
+    </script>
+</body>
+</html>
